@@ -1,10 +1,11 @@
 // config/passport.js
-				
+var bcrypt   = require('bcrypt-nodejs');
+
 // load all the things we need
 var LocalStrategy   = require('passport-local').Strategy;
 
 // load up the user model
-var User       		= require('../app/models/user');
+//var User       		= require('../app/models/user'); - commented because not in use on mysql
 var mysql = require('mysql');
 
 var connection = mysql.createConnection({
@@ -13,7 +14,7 @@ var connection = mysql.createConnection({
 				  password : ''
 				});
 
-connection.query('USE vidyawxx_build2');	
+connection.query('USE yehuda');	
 // expose this function to our app using module.exports
 module.exports = function(passport) {
 
@@ -76,12 +77,12 @@ module.exports = function(passport) {
 				
 				
 				newUserMysql.email    = email;
-                newUserMysql.password = password; // use the generateHash function in our user model
+                newUserMysql.password = bcrypt.hashSync(password, bcrypt.genSaltSync(8), null); // use the generateHash function in our user model
 
 				
 			
 				
-				var insertQuery = "INSERT INTO users ( email, password ) values ('" + email +"','"+ password +"')";
+				var insertQuery = "INSERT INTO users ( email, password ) values ('" + newUserMysql.email +"','"+ newUserMysql.password +"')";
 					
 				connection.query(insertQuery,function(err,rows){
 				newUserMysql.id = rows.insertId;
@@ -149,16 +150,15 @@ module.exports = function(passport) {
     function(req, email, password, done) { // callback with email and password from our form
 
          connection.query("select * from users where email = '"+email+"'",function(err,rows){
-		
 	
 			if (err)
                 return done(err);
 			 if (!rows.length) {
                 return done(null, false, req.flash('loginMessage', 'No user found.')); // req.flash is the way to set flashdata using connect-flash
-            } 
-			
+            }
+			passwordCheck = bcrypt.compareSync(password, rows[0].password);
 			// if the user is found but the password is wrong
-            if (!( rows[0].password == password))
+            if (!(passwordCheck))
                 return done(null, false, req.flash('loginMessage', 'Oops! Wrong password.')); // create the loginMessage and save it to session as flashdata
 			
             // all is well, return successful user
